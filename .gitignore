@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Models
+*.pt
+*.onnx
+
+# Datasets (Ana veri setini Github'a yüklemek depoyu yorar, sadece örnek resimleri koymalısın)
+# Eğer dataset_original çok büyükse aşağıdaki satırların başındaki '#' işaretini kaldır.
+# dataset_original/
+# dataset_degraded/
+# dataset_enhanced/
+# dataset_results/
+
+# YOLO runs
+runs/
+
+# Dokümanlar ve Geçici Dosyalar
+temp_eval/
+*.docx
+.DS_Store
