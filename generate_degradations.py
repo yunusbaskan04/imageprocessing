@@ -2,95 +2,107 @@ import cv2
 import numpy as np
 import os
 
+INPUT_DIR = os.path.join("dataset_eval", "images")
+OUTPUT_BASE_DIR = "dataset_degraded"
+
+VALID_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+
+# Reproducibility için sabit seed
+RANDOM_SEED = 42
+
+
 def apply_low_light(img, gamma=2.5):
-    """Görüntüyü karartmak için gamma correction uygular."""
-    # Lookup table (LUT) oluşturarak işlemi hızlandırıyoruz
-    table = np.array([((i / 255.0) ** gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+    """
+    Low-light simulation using gamma correction.
+    gamma > 1 darkens the image.
+    """
+    table = np.array([
+        ((i / 255.0) ** gamma) * 255 for i in np.arange(0, 256)
+    ]).astype("uint8")
+
     return cv2.LUT(img, table)
 
-def apply_fog(img, alpha=0.5):
-    """Düz gri bir katman ile sentetik sis uygular (Hızlı yöntem)."""
-    # Görüntüyle aynı boyutta açık gri bir katman oluştur (RGB: 200, 200, 200)
-    fog_layer = np.full(img.shape, 200, dtype=np.uint8)
-    # Görüntü ve sis katmanını alpha değerine göre birleştir
+
+def apply_fog(img, alpha=0.5, fog_intensity=200):
+    """
+    Synthetic fog simulation using alpha blending with a light-gray layer.
+    """
+    fog_layer = np.full(img.shape, fog_intensity, dtype=np.uint8)
     return cv2.addWeighted(img, 1 - alpha, fog_layer, alpha, 0)
 
-def apply_gaussian_noise(img, mean=0, std=60):
-    """Görüntüye Gaussian noise (rastgele gürültü) ekler."""
-    # Numpy ile her kanala ayrı ayrı gürültü üretmek daha belirgin ve doğru bir etki yaratır
-    noise = np.random.normal(mean, std, img.shape)
-    # Görüntü ile gürültüyü topla ve 0-255 aralığına kırp (clip)
+
+def apply_gaussian_noise(img, rng, mean=0, std=60):
+    """
+    Additive Gaussian noise simulation.
+    """
+    noise = rng.normal(mean, std, img.shape)
     noisy_img = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
     return noisy_img
 
+
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+
+
 def main():
-    # 1. Girdi klasörünü belirle
-    # Kendi klasör yapınıza göre burayı 'dataset_original/val/images' olarak da değiştirebilirsiniz.
-    input_dir = os.path.join("dataset_original", "test", "images")
-    
-    # 2. Çıktı klasörlerini belirle
-    output_base_dir = "dataset_degraded"
-    low_light_dir = os.path.join(output_base_dir, "low_light")
-    fog_dir = os.path.join(output_base_dir, "fog")
-    noise_dir = os.path.join(output_base_dir, "noise")
-    
-    # 3. Klasörleri güvenli bir şekilde oluştur (exist_ok=True ile varsa hata vermez)
-    try:
-        os.makedirs(low_light_dir, exist_ok=True)
-        os.makedirs(fog_dir, exist_ok=True)
-        os.makedirs(noise_dir, exist_ok=True)
-        print(f"Çıktı klasörleri '{output_base_dir}' altında hazırlandı.")
-    except Exception as e:
-        print(f"Klasörler oluşturulurken hata meydana geldi: {e}")
-        return
-    
-    # Girdi klasörünün var olup olmadığını kontrol et
-    if not os.path.exists(input_dir):
-        print(f"HATA: Girdi klasörü bulunamadı: {input_dir}")
-        print("Lütfen kod içerisindeki 'input_dir' değişkenini datasetinizin bulunduğu doğru yola göre ayarlayın.")
+    rng = np.random.default_rng(RANDOM_SEED)
+
+    low_light_dir = os.path.join(OUTPUT_BASE_DIR, "low_light")
+    fog_dir = os.path.join(OUTPUT_BASE_DIR, "fog")
+    noise_dir = os.path.join(OUTPUT_BASE_DIR, "noise")
+
+    ensure_dir(low_light_dir)
+    ensure_dir(fog_dir)
+    ensure_dir(noise_dir)
+
+    if not os.path.exists(INPUT_DIR):
+        print(f"ERROR: Input folder not found: {INPUT_DIR}")
+        print("First run prepare_eval_subset.py to create dataset_eval/images.")
         return
 
-    # Okunacak desteklenen görüntü formatları
-    valid_extensions = ('.jpg', '.jpeg', '.png', '.bmp')
-    
-    # Klasördeki tüm resim dosyalarını listele
-    image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(valid_extensions)]
-    
+    image_files = [
+        f for f in os.listdir(INPUT_DIR)
+        if f.lower().endswith(VALID_EXTENSIONS)
+    ]
+
     if not image_files:
-        print(f"UYARI: '{input_dir}' klasöründe hiç resim bulunamadı.")
+        print(f"WARNING: No images found in {INPUT_DIR}")
         return
-        
-    print(f"Toplam {len(image_files)} görüntü işlenecek. Lütfen bekleyin...")
-    
-    # 4. Görüntüleri tek tek oku ve işlemleri uygula
+
+    print("=" * 80)
+    print("Generating synthetic degradations")
+    print("=" * 80)
+    print(f"Input folder: {INPUT_DIR}")
+    print(f"Total images: {len(image_files)}")
+    print("Low-light: gamma = 2.5")
+    print("Fog: alpha = 0.5, fog layer intensity = 200")
+    print("Gaussian noise: mean = 0, std = 60")
+    print("=" * 80)
+
     for count, filename in enumerate(image_files, 1):
-        img_path = os.path.join(input_dir, filename)
+        img_path = os.path.join(INPUT_DIR, filename)
         img = cv2.imread(img_path)
-        
+
         if img is None:
-            print(f"UYARI: Görüntü okunamadı, atlanıyor: {img_path}")
+            print(f"WARNING: Could not read image, skipped: {img_path}")
             continue
-            
-        # --- Bozulmaları Uygula ve Kaydet ---
-        
-        # 1. Düşük Işık
-        img_low_light = apply_low_light(img, gamma=2.5)
-        cv2.imwrite(os.path.join(low_light_dir, filename), img_low_light)
-        
-        # 2. Sentetik Sis
-        img_fog = apply_fog(img, alpha=0.5)
-        cv2.imwrite(os.path.join(fog_dir, filename), img_fog)
-        
-        # 3. Gaussian Noise
-        img_noise = apply_gaussian_noise(img, mean=0, std=60)
-        cv2.imwrite(os.path.join(noise_dir, filename), img_noise)
-        
-        # Kullanıcıya süreç hakkında bilgi ver (Her 10 resimde bir)
-        if count % 10 == 0 or count == len(image_files):
-            print(f"İlerleme: {count}/{len(image_files)} tamamlandı.")
-            
-    print("İşlem başarıyla tamamlandı!")
-    print(f"Oluşturulan görüntüler şu dizinlerde bulunabilir:\n- {low_light_dir}\n- {fog_dir}\n- {noise_dir}")
+
+        low_light_img = apply_low_light(img, gamma=2.5)
+        fog_img = apply_fog(img, alpha=0.5, fog_intensity=200)
+        noise_img = apply_gaussian_noise(img, rng=rng, mean=0, std=60)
+
+        cv2.imwrite(os.path.join(low_light_dir, filename), low_light_img)
+        cv2.imwrite(os.path.join(fog_dir, filename), fog_img)
+        cv2.imwrite(os.path.join(noise_dir, filename), noise_img)
+
+        if count % 25 == 0 or count == len(image_files):
+            print(f"Progress: {count}/{len(image_files)} completed.")
+
+    print("=" * 80)
+    print("Synthetic degradation generation completed.")
+    print(f"Outputs saved under: {OUTPUT_BASE_DIR}")
+    print("=" * 80)
+
 
 if __name__ == "__main__":
     main()
