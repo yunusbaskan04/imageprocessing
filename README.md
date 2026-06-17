@@ -1,22 +1,22 @@
-# Comparative Evaluation of Classical Image Pre-processing Pipelines for UAV Detection under Adverse Visual Conditions
+# Comparative Evaluation of Classical Image Pre-processing Pipelines for Near Real-Time UAV Detection under Adverse Visual Conditions
 
-This repository contains the implementation code and experimental results for a Digital Image Processing term project. The study investigates whether lightweight classical image pre-processing methods can improve zero-shot UAV detection performance under adverse visual conditions such as low light, fog, and Gaussian noise.
+This repository contains the implementation code, experimental scripts, and final results for a Digital Image Processing term project. The study investigates whether lightweight classical image pre-processing methods can improve zero-shot UAV detection performance under adverse visual conditions such as low-light, fog, and Gaussian noise.
 
-The project compares several classical enhancement pipelines under identical conditions using the same dataset, synthetic degradation settings, YOLOv8n evaluation protocol, and performance metrics.
+The project compares multiple classical enhancement pipelines under identical conditions using the same dataset, synthetic degradation settings, YOLOv8n evaluation protocol, and performance metrics.
 
 ## Project Summary
 
-Real-time UAV detection is challenging under degraded visual conditions. Instead of retraining a large deep learning model, this project evaluates classical image processing pipelines as plug-and-play pre-processing modules before object detection.
+Near real-time UAV detection is challenging under degraded visual conditions. Instead of retraining or fine-tuning a deep learning detector, this project evaluates classical image processing pipelines as plug-and-play pre-processing modules before object detection.
 
 The evaluated methods are:
 
-1. Degraded input without enhancement
+1. Raw degraded input without enhancement
 2. Global Histogram Equalization
 3. CLAHE-only
 4. CLAHE + Bilateral Filtering
 5. Proposed-Final: CLAHE + Bilateral Filtering + Morphological Closing
 
-The main objective is not to train a new UAV detector, but to compare how different image enhancement pipelines affect the performance of a pre-trained YOLOv8n model under the same degradation and evaluation settings.
+The main objective is not to train a new UAV detector. Instead, the goal is to compare how different image enhancement pipelines affect the performance of a fixed COCO-pretrained YOLOv8n model under the same degradation and evaluation settings.
 
 ## Dataset
 
@@ -33,7 +33,29 @@ The experiments use the **Drone Detection v2** dataset from Roboflow Universe.
 * Class name: `drone`
 * Image size: 640 × 640 pixels
 
-Dataset split statistics:
+The dataset is **not included in this repository** due to size and licensing considerations. To reproduce the experiments, download the dataset from Roboflow Universe and place it under:
+
+```text
+dataset_original/
+```
+
+Expected dataset structure:
+
+```text
+dataset_original/
+├── train/
+│   ├── images/
+│   └── labels/
+├── valid/
+│   ├── images/
+│   └── labels/
+├── test/
+│   ├── images/
+│   └── labels/
+└── data.yaml
+```
+
+Dataset split statistics used in this project:
 
 | Split      | Images | Labels | Bounding Boxes | Empty Labels | Resolution |
 | ---------- | -----: | -----: | -------------: | -----------: | ---------- |
@@ -42,16 +64,20 @@ Dataset split statistics:
 | Test       |     40 |     40 |             39 |            1 | 640×640    |
 | Total      |   2190 |   2190 |           2255 |           27 | 640×640    |
 
-Since this study does not train or fine-tune a model, the validation and test subsets were combined only for zero-shot evaluation. The final evaluation subset contains:
+Since this study does not train or fine-tune a model, the validation and test subsets are combined only for zero-shot evaluation.
+
+Final evaluation subset:
 
 * 169 images
 * 177 drone annotations
 
 ## Evaluation Protocol
 
-A pre-trained YOLOv8n model is used in zero-shot mode.
+A COCO-pretrained YOLOv8n model is used in zero-shot mode.
 
-Important note: COCO-pretrained YOLOv8n does not include a dedicated `drone` class. Therefore, for evaluation consistency, the original drone labels are mapped to the closest aerial COCO class, `aeroplane` with class ID 4. This mapping is applied equally to all methods. The reported detection results should therefore be interpreted as relative zero-shot comparisons rather than fully trained UAV detector accuracy.
+Important note: COCO-pretrained YOLOv8n does not include a dedicated `drone` class. Therefore, for evaluation consistency, the original drone labels are mapped to the closest available aerial COCO class, `aeroplane`, with class ID 4.
+
+This mapping is applied equally to all compared methods. The reported detection results should therefore be interpreted as **relative zero-shot comparisons between pre-processing methods**, not as the absolute performance of a fully trained UAV detector.
 
 ## Synthetic Degradations
 
@@ -59,19 +85,23 @@ The following synthetic degradations are applied to the evaluation images:
 
 | Degradation    | Method                             | Parameters                        |
 | -------------- | ---------------------------------- | --------------------------------- |
-| Low light      | Gamma correction                   | gamma = 2.5                       |
+| Low-light      | Gamma correction                   | gamma = 2.5                       |
 | Fog            | Alpha blending with gray fog layer | alpha = 0.5, fog intensity = 200  |
 | Gaussian noise | Additive Gaussian noise            | mean = 0, standard deviation = 60 |
 
-A fixed random seed is used for Gaussian noise generation to improve reproducibility.
+A fixed random seed is used during Gaussian noise generation to improve reproducibility.
 
 ## Enhancement Methods
 
-### 1. Global Histogram Equalization
+### 1. Raw Degraded Input
 
-Global histogram equalization is applied to the luminance channel in YCrCb color space. This method is used as a simple classical baseline.
+No enhancement is applied. This baseline represents detector performance under adverse visual conditions.
 
-### 2. CLAHE-only
+### 2. Global Histogram Equalization
+
+Global histogram equalization is applied to the luminance channel in YCrCb color space. This method is used as a simple classical contrast enhancement baseline.
+
+### 3. CLAHE-only
 
 Contrast Limited Adaptive Histogram Equalization is applied to the L channel in LAB color space.
 
@@ -80,7 +110,7 @@ Parameters:
 * clipLimit = 2.0
 * tileGridSize = 8 × 8
 
-### 3. CLAHE + Bilateral Filtering
+### 4. CLAHE + Bilateral Filtering
 
 This variant applies CLAHE followed by bilateral filtering.
 
@@ -90,7 +120,7 @@ Bilateral filter parameters:
 * sigmaColor = 75
 * sigmaSpace = 75
 
-### 4. Proposed-Final Pipeline
+### 5. Proposed-Final Pipeline
 
 The proposed final pipeline consists of:
 
@@ -100,24 +130,33 @@ The proposed final pipeline consists of:
 4. Bilateral filtering
 5. Morphological closing using a 7 × 7 elliptical structuring element
 
-This pipeline is evaluated as the final detection-oriented enhancement method.
+In the implementation, the final method is stored under the folder name:
+
+```text
+morphology_ablation/
+```
+
+In the paper and final results, this method is reported as:
+
+```text
+Proposed-Final
+```
+
+The name `morphology_ablation` was kept in the code because morphological closing was initially tested as an ablation component. The final detection results showed that this variant achieved the best mAP@50 under all tested degradation scenarios.
 
 ## Repository Structure
+
+Some folders shown below are generated locally and are intentionally not included in the GitHub repository.
 
 ```text
 imageprocessing/
 │
-├── dataset_original/              # Original Roboflow YOLOv8 dataset
-├── dataset_eval/                  # Combined validation + test evaluation subset
-├── dataset_degraded/              # Synthetic low-light, fog, and noise images
-├── outputs/                       # Enhancement outputs for each method
-│   ├── degraded/
-│   ├── global_he/
-│   ├── clahe_only/
-│   ├── proposed/
-│   └── morphology_ablation/
+├── dataset_original/              # Not included: downloaded Roboflow YOLOv8 dataset
+├── dataset_eval/                  # Not included: generated validation + test subset
+├── dataset_degraded/              # Not included: generated synthetic degraded images
+├── outputs/                       # Not included: generated enhancement outputs
 │
-├── results/
+├── results/                       # Included: final CSV results and selected figures
 │   ├── image_quality_results.csv
 │   ├── detection_results.csv
 │   ├── runtime_results.csv
@@ -131,13 +170,30 @@ imageprocessing/
 ├── measure_runtime.py
 ├── generate_result_figures.py
 ├── create_visual_comparisons.py
+├── make_sample_contact_sheet.py
 ├── requirements.txt
+├── .gitignore
 └── README.md
+```
+
+The following folders are ignored by Git and should be generated locally:
+
+```text
+dataset_original/
+dataset_eval/
+dataset_degraded/
+outputs/
 ```
 
 ## Installation
 
 Create a Python environment and install the required libraries:
+
+```bash
+pip install -r requirements.txt
+```
+
+If `requirements.txt` is not available, the main required packages are:
 
 ```bash
 pip install opencv-python numpy pandas matplotlib scikit-image ultralytics pyyaml
@@ -165,6 +221,8 @@ python prepare_eval_dataset.py
 Expected output:
 
 ```text
+valid: copied 129 images and 129 labels
+test: copied 40 images and 40 labels
 Total copied images: 169
 Total copied labels: 169
 Output folder: dataset_eval
@@ -188,10 +246,10 @@ dataset_degraded/
 ### 3. Generate enhancement outputs
 
 ```bash
-python enhance_images.py --method all
+python enhance_images.py
 ```
 
-This creates:
+This creates enhancement outputs under:
 
 ```text
 outputs/
@@ -201,6 +259,8 @@ outputs/
 ├── proposed/
 └── morphology_ablation/
 ```
+
+Note: In the code, `proposed/` refers to the CLAHE + Bilateral variant, while `morphology_ablation/` corresponds to the final method reported in the paper as Proposed-Final.
 
 ### 4. Calculate PSNR and SSIM
 
@@ -264,7 +324,7 @@ The Proposed-Final pipeline achieved the highest mAP@50 in all tested degradatio
 | Fog         | Proposed-Final | 0.1095 |    0.2801 | 0.1073 |
 | Noise       | Proposed-Final | 0.0634 |    0.0956 | 0.2203 |
 
-Compared with the degraded input, the Proposed-Final pipeline improved mAP@50 approximately:
+Compared with the raw degraded input, the Proposed-Final pipeline improved mAP@50 approximately:
 
 * 9.9× under low-light degradation
 * 3.5× under fog degradation
@@ -272,7 +332,9 @@ Compared with the degraded input, the Proposed-Final pipeline improved mAP@50 ap
 
 ### Image Quality Metrics
 
-The image-quality metrics showed that the method with the best PSNR or SSIM is not always the best method for object detection. For example, Global Histogram Equalization and CLAHE-only achieved strong PSNR/SSIM values in some cases, while the Proposed-Final pipeline achieved the best detection-level mAP@50.
+The image-quality metrics showed that the method with the best PSNR or SSIM is not always the best method for object detection.
+
+For example, Global Histogram Equalization and CLAHE-only achieved strong PSNR/SSIM values in some cases, while the Proposed-Final pipeline achieved the best detection-level mAP@50.
 
 This indicates that pixel-level similarity metrics and detection-level metrics may not always correlate directly.
 
@@ -299,11 +361,12 @@ Therefore, this project emphasizes a detection-oriented evaluation approach rath
 
 This project has several limitations:
 
-1. YOLOv8n is used in zero-shot mode without UAV-specific fine-tuning.
-2. Since COCO does not include a drone class, labels are mapped to the surrogate aeroplane class for relative evaluation.
-3. The evaluation subset contains 169 images, which is useful for controlled comparison but still limited.
-4. The degradations are synthetic and may not fully represent real-world fog, illumination, and sensor noise.
-5. The Proposed-Final pipeline improves detection metrics but may reduce visual fidelity in some cases.
+* YOLOv8n is used in zero-shot mode without UAV-specific fine-tuning.
+* Since COCO does not include a drone class, labels are mapped to the surrogate `aeroplane` class for relative evaluation.
+* The evaluation subset contains 169 images, which is useful for controlled comparison but still limited.
+* The degradations are synthetic and may not fully represent real-world fog, illumination changes, motion blur, compression artifacts, or sensor noise.
+* The Proposed-Final pipeline improves detection metrics but may reduce visual fidelity in some cases.
+* Only one main degradation strength and one main parameter setting are used for each experiment.
 
 ## Future Work
 
@@ -313,11 +376,12 @@ Future work may include:
 * Testing on real adverse-weather UAV images
 * Comparing the classical pipelines with deep-learning-based dehazing or low-light enhancement methods
 * Performing parameter optimization for CLAHE, bilateral filtering, and morphological operations
+* Evaluating multiple degradation strengths and several random noise seeds
 * Evaluating the pipeline on embedded edge devices such as Jetson Nano or Jetson Orin Nano
 
 ## AI Usage Declaration
 
-Generative AI tools were used for language refinement, document structuring, debugging support, and README organization. All experimental results, code execution, parameter settings, and interpretations were manually reviewed and verified by the author.
+Generative AI tools were used for language refinement, document structuring, debugging support, and README organization. All experimental results, code execution, parameter settings, numerical interpretations, and final decisions were manually reviewed and verified by the author.
 
 ## Author
 
